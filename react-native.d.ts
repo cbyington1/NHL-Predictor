@@ -12,6 +12,8 @@ declare module 'react-native' {
   export const Platform: any;
   export const Dimensions: any;
   export const RefreshControl: any; 
+  export const LayoutChangeEvent: any; 
+
 
   // Add these new type definitions
   export interface NativeSyntheticEvent<T> {

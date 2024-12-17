@@ -1,7 +1,6 @@
-import React from 'react';
-import { View, Text, Pressable, Image, StyleSheet, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Pressable, Image, StyleSheet, Platform } from 'react-native';
 import type { Game } from '../types/index';
-import { formatDate } from '../utils/dateUtils';
 
 interface GameCardProps {
   game: Game;
@@ -11,36 +10,50 @@ interface GameCardProps {
 }
 
 export default function GameCard({ game, onSelect, selected }: GameCardProps) {
-  // Format date and time separately for better display
+  const [isHovered, setIsHovered] = useState(false);
+  
   const gameDate = new Date(game.startTime);
   const formattedTime = gameDate.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
   });
-  const formattedDate = gameDate.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric'
-  });
+
+  const renderRecord = (record: { wins: number; losses: number; otl: number }) => {
+    return (
+      <Text style={styles.record}>
+        {record.wins}-{record.losses}-{record.otl}
+      </Text>
+    );
+  };
 
   return (
     <Pressable 
       style={[
         styles.card,
-        selected && styles.selectedCard
+        selected && styles.selectedCard,
+        Platform.OS === 'web' && {
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+        },
+        isHovered && Platform.OS === 'web' && {
+          transform: [{translateY: -8}, {scale: 1.02}],
+          backgroundColor: '#f8fafc',
+          shadowColor: '#2563eb',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.2,
+          shadowRadius: 16,
+          zIndex: 1,
+        }
       ]}
       onPress={() => onSelect(game.id)}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
     >
-      {/* Date/Time Header */}
       <View style={styles.dateHeader}>
-        <Text style={styles.date}>{formattedDate}</Text>
         <Text style={styles.time}>{formattedTime}</Text>
       </View>
 
-      {/* Teams Container */}
       <View style={styles.teamsContainer}>
-        {/* Home Team */}
         <View style={styles.teamSection}>
           <View style={styles.logoContainer}>
             <Image 
@@ -49,14 +62,10 @@ export default function GameCard({ game, onSelect, selected }: GameCardProps) {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.teamName}>{game.homeTeam.city}</Text>
-          <Text style={styles.teamAbbrev}>{game.homeTeam.abbreviation}</Text>
-          <Text style={styles.record}>
-            {game.homeTeam.record.wins}-{game.homeTeam.record.losses}-{game.homeTeam.record.otl}
-          </Text>
+          <Text style={styles.teamName}>{game.homeTeam.name}</Text>
+          {renderRecord(game.homeTeam.record)}
         </View>
 
-        {/* Center Info */}
         <View style={styles.centerInfo}>
           <Text style={styles.vsText}>VS</Text>
           {game.status === 'live' && game.score && (
@@ -66,7 +75,6 @@ export default function GameCard({ game, onSelect, selected }: GameCardProps) {
           )}
         </View>
 
-        {/* Away Team */}
         <View style={styles.teamSection}>
           <View style={styles.logoContainer}>
             <Image 
@@ -75,19 +83,9 @@ export default function GameCard({ game, onSelect, selected }: GameCardProps) {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.teamName}>{game.awayTeam.city}</Text>
-          <Text style={styles.teamAbbrev}>{game.awayTeam.abbreviation}</Text>
-          <Text style={styles.record}>
-            {game.awayTeam.record.wins}-{game.awayTeam.record.losses}-{game.awayTeam.record.otl}
-          </Text>
+          <Text style={styles.teamName}>{game.awayTeam.name}</Text>
+          {renderRecord(game.awayTeam.record)}
         </View>
-      </View>
-
-      {/* Status Bar */}
-      <View style={styles.statusBar}>
-        <Text style={styles.statusText}>
-          {game.status === 'pre' ? 'Upcoming' : game.status.toUpperCase()}
-        </Text>
       </View>
     </Pressable>
   );
@@ -96,15 +94,25 @@ export default function GameCard({ game, onSelect, selected }: GameCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    overflow: 'hidden',
+    borderRadius: 12,
+    marginHorizontal: 8,
+    marginVertical: 4,
+    maxWidth: 800,
+    alignSelf: 'center',
+    width: '100%',
+    cursor: Platform.OS === 'web' ? 'pointer' : 'default',
+    ...(Platform.OS === 'web' 
+      ? {
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        }
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 3,
+        }
+    ),
   },
   selectedCard: {
     borderWidth: 2,
@@ -116,14 +124,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  date: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
   },
   time: {
     fontSize: 16,
@@ -140,28 +141,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoContainer: {
-    width: 80,
-    height: 80,
+    width: 50,
+    height: 50,
     backgroundColor: '#f8fafc',
-    borderRadius: 40,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   teamLogo: {
-    width: 60,
-    height: 60,
+    width: 35,
+    height: 35,
   },
   teamName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1e293b',
     textAlign: 'center',
-    marginBottom: 4,
-  },
-  teamAbbrev: {
-    fontSize: 14,
-    color: '#64748b',
     marginBottom: 4,
   },
   record: {
@@ -173,27 +169,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   vsText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#94a3b8',
   },
   score: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#1e293b',
     marginTop: 8,
-  },
-  statusBar: {
-    backgroundColor: '#f1f5f9',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#64748b',
-    textAlign: 'center',
   },
 });

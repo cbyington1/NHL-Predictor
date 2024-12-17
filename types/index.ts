@@ -22,6 +22,10 @@ export interface Game {
     homeOdds: number;
     awayOdds: number;
   } | null;
+  score?: {
+    home: number;
+    away: number;
+  };
 }
 
 export interface UserPrediction {

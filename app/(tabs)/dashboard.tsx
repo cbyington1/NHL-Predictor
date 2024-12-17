@@ -1,15 +1,19 @@
+// app/(tabs)/dashboard.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text } from 'react-native';
 import { useSelector } from 'react-redux';
+import GamesByDay from '../../components/GamesByDay';
 import GameCard from '../../components/GameCard';
 import PredictionModal from '../../components/PredictionModal';
 import NHLApiService from '../../services/nhlApi';
-import type { Game, UserPrediction } from '../../types/index';
+import type { Game, UserPrediction } from '@/types/index';
 import type { RootState } from '@/store';
 
-interface RenderItemProps {
+interface RenderGameCardProps {
   item: Game;
+  onSelect: (gameId: number) => void;
+  selected: boolean;
+  hasPrediction: boolean;
 }
 
 export default function Dashboard() {
@@ -59,81 +63,47 @@ export default function Dashboard() {
     }
   };
 
-  const renderItem = ({ item }: RenderItemProps) => (
-    <GameCard
-      game={item}
-      onSelect={handleGameSelect}
-      selected={selectedGame?.id === item.id}
-      hasPrediction={predictions.some(pred => pred.gameId === item.id)}
-    />
-  );
-
-  const ListHeader = () => (
-    <View className="p-4 bg-gray-100">
-      <Text className="text-2xl font-bold text-blue-900">
-        NHL Predictions
-      </Text>
-      {games.length > 0 && (
-        <Text className="text-sm text-gray-600 mt-1">
-          {games.length} upcoming games
-        </Text>
-      )}
+  const renderGameCard = ({ item, onSelect, selected, hasPrediction }: RenderGameCardProps) => (
+    <View style={{ 
+      backgroundColor: '#fff', 
+      marginHorizontal: 10,
+      marginVertical: 5,
+      padding: 8,
+    }}>
+      <GameCard
+        game={item}
+        onSelect={onSelect}
+        selected={selected}
+        hasPrediction={hasPrediction}
+      />
     </View>
   );
-
-  const ListEmptyComponent = () => (
-    <View className="flex-1 justify-center items-center p-8">
-      <Text className="text-lg text-gray-600 text-center">
-        No upcoming games available
-      </Text>
-      <Text 
-        className="text-blue-600 font-semibold mt-2"
-        onPress={handleRefresh}
-      >
-        Pull to refresh
-      </Text>
-    </View>
-  );
-
-  if (loading && !refreshing) {
-    return (
-      <SafeAreaView className="flex-1 bg-gray-100 justify-center items-center">
-        <ActivityIndicator size="large" color="#2563eb" />
-      </SafeAreaView>
-    );
-  }
 
   if (error) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-100 justify-center items-center p-4">
-        <Text className="text-red-600 mb-4 text-center">{error}</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+        <Text style={{ color: 'red', marginBottom: 16, textAlign: 'center' }}>{error}</Text>
         <Text 
-          className="text-blue-600 font-semibold"
+          style={{ color: '#2563eb', fontWeight: '600' }}
           onPress={fetchGames}
         >
           Try Again
         </Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-100">
-      <FlatList<Game>
-        contentContainerStyle={{ flexGrow: 1 }}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmptyComponent}
-        data={games}
-        renderItem={renderItem}
-        keyExtractor={(item: Game) => item.id.toString()}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={["#2563eb"]}
-            tintColor="#2563eb"
-          />
-        }
+    <View style={{ flex: 1 }}>
+      <GamesByDay
+        games={games}
+        loading={loading}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+        predictions={predictions}
+        onGameSelect={handleGameSelect}
+        selectedGame={selectedGame}
+        renderGameCard={renderGameCard}
       />
 
       {selectedGame && (
@@ -143,6 +113,6 @@ export default function Dashboard() {
           game={selectedGame}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }

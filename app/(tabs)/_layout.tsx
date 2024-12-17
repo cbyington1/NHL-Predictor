@@ -1,19 +1,17 @@
 import { Tabs } from 'expo-router';
-import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { useColorScheme } from '@/components/useColorScheme';
 
-// Add this type definition
-type ColorScheme = 'light' | 'dark';
+// Define the allowed color scheme types based on your Colors object
+type ColorSchemeType = keyof typeof Colors;
 
 export default function TabLayout() {
-  // Cast the colorScheme to our defined type
-  const colorScheme = useColorScheme() as ColorScheme;
+  const colorScheme = useColorScheme() as ColorSchemeType;
 
   return (
     <Tabs
       screenOptions={{
-        // Now TypeScript knows colorScheme is either 'light' or 'dark'
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
       }}>
       <Tabs.Screen
@@ -21,7 +19,7 @@ export default function TabLayout() {
         options={{
           title: 'Predictions',
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="hockey-puck" color={color} />
+            <FontAwesome5 name="hockey-puck" size={28} style={{ marginBottom: -3 }} color={color} />
           ),
         }}
       />
@@ -30,17 +28,10 @@ export default function TabLayout() {
         options={{
           title: 'Stats',
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="chart-line" color={color} />
+            <FontAwesome5 name="chart-line" size={28} style={{ marginBottom: -3 }} color={color} />
           ),
         }}
       />
     </Tabs>
   );
-}
-
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome5>['name'];
-  color: string;
-}) {
-  return <FontAwesome5 size={28} style={{ marginBottom: -3 }} {...props} />;
 }
