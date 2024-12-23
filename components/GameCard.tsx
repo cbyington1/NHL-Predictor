@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, Image, StyleSheet, Platform } from 'react-native';
-import type { Game } from '../types/index';
+import type { Game, Team } from '../types/index';
 
 interface GameCardProps {
   game: Game;
@@ -19,13 +19,28 @@ export default function GameCard({ game, onSelect, selected }: GameCardProps) {
     hour12: true
   });
 
-  const renderRecord = (record: { wins: number; losses: number; otl: number }) => {
+  const renderRecord = (record: Team['record']) => {
     return (
       <Text style={styles.record}>
         {record.wins}-{record.losses}-{record.otl}
       </Text>
     );
   };
+
+  const renderTeamInfo = (team: Team) => (
+    <>
+      <View style={styles.logoContainer}>
+        <Image 
+          source={{ uri: team.logo }}
+          style={styles.teamLogo}
+          resizeMode="contain"
+        />
+      </View>
+      <Text style={styles.teamName}>{team.name}</Text>
+      <Text style={styles.cityName}>{team.city}</Text>
+      {renderRecord(team.record)}
+    </>
+  );
 
   return (
     <Pressable 
@@ -51,19 +66,16 @@ export default function GameCard({ game, onSelect, selected }: GameCardProps) {
     >
       <View style={styles.dateHeader}>
         <Text style={styles.time}>{formattedTime}</Text>
+        {game.odds && (
+          <Text style={styles.odds}>
+            {game.odds.homeOdds > game.odds.awayOdds ? '+' : ''}{game.odds.homeOdds} / {game.odds.awayOdds > game.odds.homeOdds ? '+' : ''}{game.odds.awayOdds}
+          </Text>
+        )}
       </View>
 
       <View style={styles.teamsContainer}>
         <View style={styles.teamSection}>
-          <View style={styles.logoContainer}>
-            <Image 
-              source={{ uri: game.homeTeam.logo }}
-              style={styles.teamLogo}
-              resizeMode="contain"
-            />
-          </View>
-          <Text style={styles.teamName}>{game.homeTeam.name}</Text>
-          {renderRecord(game.homeTeam.record)}
+          {renderTeamInfo(game.homeTeam)}
         </View>
 
         <View style={styles.centerInfo}>
@@ -76,15 +88,7 @@ export default function GameCard({ game, onSelect, selected }: GameCardProps) {
         </View>
 
         <View style={styles.teamSection}>
-          <View style={styles.logoContainer}>
-            <Image 
-              source={{ uri: game.awayTeam.logo }}
-              style={styles.teamLogo}
-              resizeMode="contain"
-            />
-          </View>
-          <Text style={styles.teamName}>{game.awayTeam.name}</Text>
-          {renderRecord(game.awayTeam.record)}
+          {renderTeamInfo(game.awayTeam)}
         </View>
       </View>
     </Pressable>
@@ -130,6 +134,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
   },
+  odds: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 2,
+  },
   teamsContainer: {
     flexDirection: 'row',
     padding: 16,
@@ -157,6 +166,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1e293b',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  cityName: {
+    fontSize: 14,
+    color: '#64748b',
     textAlign: 'center',
     marginBottom: 4,
   },
