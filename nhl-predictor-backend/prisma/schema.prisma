@@ -1,0 +1,56 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Team {
+  id            Int       @id
+  name          String
+  city          String
+  abbreviation  String    @unique
+  
+  // Stats (matches your HockeyStatsService structure)
+  basic         BasicStats?
+  shooting      ShootingStats?
+  special       SpecialStats?
+}
+
+model BasicStats {
+  id                  Int     @id @default(autoincrement())
+  teamId             Int     @unique
+  team               Team    @relation(fields: [teamId], references: [id])
+  gamesPlayed        Int
+  wins               Int
+  losses             Int
+  otLosses          Int
+  points             Int
+  goalsFor          Int
+  goalsAgainst      Int
+  goalDifferential  Int
+  goalsForPerGame   Float
+  goalsAgainstPerGame Float
+}
+
+model ShootingStats {
+  id                  Int     @id @default(autoincrement())
+  teamId             Int     @unique
+  team               Team    @relation(fields: [teamId], references: [id])
+  shotsForPerGame    Float
+  shotsAgainstPerGame Float
+  shootingPct        Float
+  savePct            Float
+}
+
+model SpecialStats {
+  id              Int     @id @default(autoincrement())
+  teamId         Int     @unique
+  team           Team    @relation(fields: [teamId], references: [id])
+  powerPlayPct   Float
+  penaltyKillPct Float
+  faceoffWinPct  Float
+}

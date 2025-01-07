@@ -13,7 +13,9 @@ export default function GameCard({ game, onSelect, selected }: GameCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   
   const gameDate = new Date(game.startTime);
-  const formattedTime = gameDate.toLocaleTimeString('en-US', {
+  // Convert UTC to local time by adding the timezone offset
+  const displayDate = new Date(gameDate.getTime() + (Math.abs(new Date().getTimezoneOffset()) * 60000));
+  const gameTime = displayDate.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
@@ -65,7 +67,7 @@ export default function GameCard({ game, onSelect, selected }: GameCardProps) {
       onHoverOut={() => setIsHovered(false)}
     >
       <View style={styles.dateHeader}>
-        <Text style={styles.time}>{formattedTime}</Text>
+        <Text style={styles.time}>{gameTime}</Text>
         {game.odds && (
           <Text style={styles.odds}>
             {game.odds.homeOdds > game.odds.awayOdds ? '+' : ''}{game.odds.homeOdds} / {game.odds.awayOdds > game.odds.homeOdds ? '+' : ''}{game.odds.awayOdds}

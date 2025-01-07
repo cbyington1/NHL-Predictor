@@ -8,6 +8,11 @@ interface ESPNTeamResponse {
   abbreviation: string;
   location: string;
   logos?: Array<{ href: string }>;
+  statistics?: Array<{
+    name: string;
+    value: number;
+    displayValue: string;
+  }>;
 }
 
 interface ESPNGameResponse {
@@ -33,28 +38,77 @@ interface ESPNScheduleResponse {
 }
 
 class NHLApiService {
+  private static async getTeamRecord(team: ESPNTeamResponse): Promise<{ wins: number; losses: number; otl: number }> {
+    const defaultRecord = { wins: 0, losses: 0, otl: 0 };
+    
+    try {
+      const url = `${NHL_API_BASE}/teams/${team.id}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.log('Failed to fetch team record for:', team.name);
+        return defaultRecord;
+      }
+
+      const data = await response.json();
+      const stats = data.team?.record?.items?.[0]?.stats;
+
+      if (!stats) {
+        console.log('No statistics found for team:', team.name);
+        return defaultRecord;
+      }
+
+      return {
+        wins: parseInt(stats.find((s: any) => s.name === 'wins')?.value) || 0,
+        losses: parseInt(stats.find((s: any) => s.name === 'losses')?.value) || 0,
+        otl: parseInt(stats.find((s: any) => s.name === 'otlosses' || s.name === 'overtimeLosses')?.value) || 0
+      };
+    } catch (error) {
+      console.error('Error fetching team record:', error);
+      return defaultRecord;
+    }
+  }
+
+  private static async convertToTeam(espnTeam: ESPNTeamResponse): Promise<Team> {
+    const record = await this.getTeamRecord(espnTeam);
+    
+    return {
+      id: parseInt(espnTeam.id),
+      name: espnTeam.name.replace(espnTeam.location, '').trim(),
+      city: espnTeam.location,
+      abbreviation: espnTeam.abbreviation,
+      logo: espnTeam.logos?.[0]?.href || 
+            `https://a.espncdn.com/i/teamlogos/nhl/500/scoreboard/${espnTeam.abbreviation.toLowerCase()}.png`,
+      record
+    };
+  }
+
   private static formatDateForESPN(date: Date): string {
     // ESPN expects dates in YYYYMMDD format
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    
-    console.log('Formatting date for ESPN:', {
-      inputDate: date,
-      formatted: `${year}${month}${day}`
-    });
-    
     return `${year}${month}${day}`;
   }
 
-  private static convertGameTime(utcDateString: string): string {
-    // ESPN provides dates in UTC, we'll keep them in UTC and let the UI handle display
-    return new Date(utcDateString).toISOString();
+  private static parseGameDate(utcDateString: string): string {
+    // Create a date object from the UTC string
+    // ESPN provides dates in UTC format (e.g., "2024-12-23T18:00Z")
+    const date = new Date(utcDateString);
+    
+    // Get the user's timezone offset in minutes
+    const timezoneOffset = new Date().getTimezoneOffset() * 60000;
+    
+    // Create a new date considering the timezone offset
+    const localDate = new Date(date.getTime() - timezoneOffset);
+    
+    // Return the ISO string which will be used for display
+    return localDate.toISOString();
   }
 
   public static async getUpcomingGames(): Promise<Game[]> {
     try {
-      // Get the date range
+      // Get today's date at midnight in local time
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
@@ -64,12 +118,6 @@ class NHLApiService {
       const startDate = this.formatDateForESPN(today);
       const endDate = this.formatDateForESPN(nextWeek);
 
-      console.log('Fetching games with date range:', {
-        startDate,
-        endDate,
-        todayFormatted: today.toISOString()
-      });
-
       const url = `${NHL_API_BASE}/scoreboard?dates=${startDate}-${endDate}`;
       const response = await fetch(url);
       
@@ -78,15 +126,6 @@ class NHLApiService {
       }
 
       const data: ESPNScheduleResponse = await response.json();
-
-      console.log('Raw ESPN response first few games:', 
-        data.events.slice(0, 3).map(event => ({
-          id: event.id,
-          date: event.date,
-          convertedDate: this.convertGameTime(event.date)
-        }))
-      );
-
       const games: Game[] = [];
 
       for (const event of data.events) {
@@ -95,40 +134,16 @@ class NHLApiService {
         const awayTeamData = competition.competitors.find(c => c.homeAway === 'away')?.team;
 
         if (homeTeamData && awayTeamData) {
-          const homeTeam: Team = {
-            id: parseInt(homeTeamData.id),
-            name: homeTeamData.name.replace(homeTeamData.location, '').trim(),
-            city: homeTeamData.location,
-            abbreviation: homeTeamData.abbreviation,
-            logo: homeTeamData.logos?.[0]?.href || 
-                  `https://a.espncdn.com/i/teamlogos/nhl/500/scoreboard/${homeTeamData.abbreviation.toLowerCase()}.png`,
-            record: { wins: 0, losses: 0, otl: 0 }
-          };
-
-          const awayTeam: Team = {
-            id: parseInt(awayTeamData.id),
-            name: awayTeamData.name.replace(awayTeamData.location, '').trim(),
-            city: awayTeamData.location,
-            abbreviation: awayTeamData.abbreviation,
-            logo: awayTeamData.logos?.[0]?.href || 
-                  `https://a.espncdn.com/i/teamlogos/nhl/500/scoreboard/${awayTeamData.abbreviation.toLowerCase()}.png`,
-            record: { wins: 0, losses: 0, otl: 0 }
-          };
-
-          const startTime = this.convertGameTime(event.date);
-          
-          console.log('Processing game:', {
-            id: event.id,
-            originalDate: event.date,
-            convertedDate: startTime,
-            teams: `${homeTeam.name} vs ${awayTeam.name}`
-          });
+          const [homeTeam, awayTeam] = await Promise.all([
+            this.convertToTeam(homeTeamData),
+            this.convertToTeam(awayTeamData)
+          ]);
 
           games.push({
             id: parseInt(event.id),
             homeTeam,
             awayTeam,
-            startTime,
+            startTime: this.parseGameDate(event.date),
             status: event.status.type.state.toLowerCase(),
             odds: null
           });

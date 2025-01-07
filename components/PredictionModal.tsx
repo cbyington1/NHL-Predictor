@@ -1,4 +1,3 @@
-// components/PredictionModal.tsx
 import React from 'react';
 import { Modal, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import type { Game } from '@/types/index';
@@ -13,16 +12,27 @@ interface PredictionModalProps {
 export default function PredictionModal({ visible, onClose, game }: PredictionModalProps) {
     const { prediction, loading, error } = usePrediction(game);
 
+    const renderProbabilityBar = (probability: number) => (
+        <View style={styles.probabilityBarContainer}>
+            <View 
+                style={[
+                    styles.probabilityFill, 
+                    { width: `${probability}%` },
+                    probability > 60 ? styles.highProbability : 
+                    probability > 40 ? styles.mediumProbability : 
+                    styles.lowProbability
+                ]} 
+            />
+        </View>
+    );
+
     return (
         <Modal
             visible={visible}
             animationType="fade"
             transparent
         >
-            <Pressable 
-                style={styles.overlay} 
-                onPress={onClose}
-            >
+            <Pressable style={styles.overlay} onPress={onClose}>
                 <View style={styles.modalContent}>
                     {loading ? (
                         <ActivityIndicator size="large" color="#3b82f6" />
@@ -35,17 +45,20 @@ export default function PredictionModal({ visible, onClose, game }: PredictionMo
                         </View>
                     ) : prediction ? (
                         <>
-                            <Text style={styles.title}>Game Prediction</Text>
+                            <Text style={styles.title}>Win Probability</Text>
                             
                             <View style={styles.teamsContainer}>
                                 <View style={styles.teamColumn}>
                                     <Text style={styles.teamName}>{game.homeTeam.name}</Text>
-                                    <Text style={styles.probability}>
+                                    <Text style={[
+                                        styles.probability,
+                                        prediction.homeTeamWinProbability > 60 ? styles.highProbabilityText :
+                                        prediction.homeTeamWinProbability > 40 ? styles.mediumProbabilityText :
+                                        styles.lowProbabilityText
+                                    ]}>
                                         {prediction.homeTeamWinProbability.toFixed(1)}%
                                     </Text>
-                                    <Text style={styles.predictedScore}>
-                                        Predicted: {prediction.predictedScore.home.toFixed(1)}
-                                    </Text>
+                                    {renderProbabilityBar(prediction.homeTeamWinProbability)}
                                 </View>
                                 
                                 <View style={styles.vsContainer}>
@@ -54,25 +67,28 @@ export default function PredictionModal({ visible, onClose, game }: PredictionMo
                                 
                                 <View style={styles.teamColumn}>
                                     <Text style={styles.teamName}>{game.awayTeam.name}</Text>
-                                    <Text style={styles.probability}>
+                                    <Text style={[
+                                        styles.probability,
+                                        prediction.awayTeamWinProbability > 60 ? styles.highProbabilityText :
+                                        prediction.awayTeamWinProbability > 40 ? styles.mediumProbabilityText :
+                                        styles.lowProbabilityText
+                                    ]}>
                                         {prediction.awayTeamWinProbability.toFixed(1)}%
                                     </Text>
-                                    <Text style={styles.predictedScore}>
-                                        Predicted: {prediction.predictedScore.away.toFixed(1)}
-                                    </Text>
+                                    {renderProbabilityBar(prediction.awayTeamWinProbability)}
                                 </View>
                             </View>
 
                             <View style={styles.factorsContainer}>
-                                <Text style={styles.factorsTitle}>Key Factors</Text>
+                                <Text style={styles.factorsTitle}>Contributing Factors</Text>
                                 <View style={styles.factorRow}>
-                                    <Text style={styles.factorLabel}>Offense:</Text>
+                                    <Text style={styles.factorLabel}>Offensive Rating:</Text>
                                     <Text style={styles.factorValue}>
                                         {prediction.factors.homeAdvantage.offense.toFixed(2)} vs {prediction.factors.awayAdvantage.offense.toFixed(2)}
                                     </Text>
                                 </View>
                                 <View style={styles.factorRow}>
-                                    <Text style={styles.factorLabel}>Defense:</Text>
+                                    <Text style={styles.factorLabel}>Defensive Rating:</Text>
                                     <Text style={styles.factorValue}>
                                         {prediction.factors.homeAdvantage.defense.toFixed(2)} vs {prediction.factors.awayAdvantage.defense.toFixed(2)}
                                     </Text>
@@ -138,12 +154,36 @@ const styles = StyleSheet.create({
     probability: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#3b82f6',
         marginBottom: 8,
     },
-    predictedScore: {
-        fontSize: 16,
-        color: '#64748b',
+    probabilityBarContainer: {
+        width: '100%',
+        height: 8,
+        backgroundColor: '#e2e8f0',
+        borderRadius: 4,
+        overflow: 'hidden',
+    },
+    probabilityFill: {
+        height: '100%',
+        borderRadius: 4,
+    },
+    highProbability: {
+        backgroundColor: '#22c55e',
+    },
+    mediumProbability: {
+        backgroundColor: '#eab308',
+    },
+    lowProbability: {
+        backgroundColor: '#ef4444',
+    },
+    highProbabilityText: {
+        color: '#22c55e',
+    },
+    mediumProbabilityText: {
+        color: '#eab308',
+    },
+    lowProbabilityText: {
+        color: '#ef4444',
     },
     vsContainer: {
         paddingHorizontal: 16,
