@@ -1,10 +1,10 @@
-// app/(tabs)/dashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { useSelector } from 'react-redux';
 import GamesByDay from '../../components/GamesByDay';
 import GameCard from '../../components/GameCard';
 import PredictionModal from '../../components/PredictionModal';
+import DarkThemeLayout from '@/components/DarkThemeLayout';
 import NHLApiService from '../../services/nhlApi';
 import type { Game, UserPrediction } from '@/types/index';
 import type { RootState } from '@/store';
@@ -65,7 +65,6 @@ export default function Dashboard() {
 
   const renderGameCard = ({ item, onSelect, selected, hasPrediction }: RenderGameCardProps) => (
     <View style={{ 
-      backgroundColor: '#fff', 
       marginHorizontal: 10,
       marginVertical: 5,
       padding: 8,
@@ -81,20 +80,22 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 }}>
-        <Text style={{ color: 'red', marginBottom: 16, textAlign: 'center' }}>{error}</Text>
-        <Text 
-          style={{ color: '#2563eb', fontWeight: '600' }}
-          onPress={fetchGames}
-        >
-          Try Again
-        </Text>
-      </View>
+      <DarkThemeLayout>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+          <Text style={{ color: '#ef4444', marginBottom: 16, textAlign: 'center' }}>{error}</Text>
+          <Text 
+            style={{ color: '#60a5fa', fontWeight: '600' }}
+            onPress={fetchGames}
+          >
+            Try Again
+          </Text>
+        </View>
+      </DarkThemeLayout>
     );
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <DarkThemeLayout>
       <GamesByDay
         games={games}
         loading={loading}
@@ -113,6 +114,6 @@ export default function Dashboard() {
           game={selectedGame}
         />
       )}
-    </View>
+    </DarkThemeLayout>
   );
 }
