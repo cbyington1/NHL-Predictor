@@ -1,4 +1,5 @@
 import HockeyStatsService from './HockeyStatsService';
+import DatabaseService from './DatabaseService';
 
 interface TeamStats {
     basic: {
@@ -229,7 +230,7 @@ class PredictionService {
                 awayAdvantage.momentumFactor
             );
 
-            return {
+            const prediction = {
                 homeTeamWinProbability: this.safeToFixed(homeProb),
                 awayTeamWinProbability: this.safeToFixed(awayProb),
                 predictedScore: {
@@ -243,6 +244,23 @@ class PredictionService {
                     confidence
                 }
             };
+
+            // Save prediction to database
+            await DatabaseService.savePrediction({
+                gameId: parseInt(homeTeamId),
+                homeTeamId: parseInt(homeTeamId),
+                awayTeamId: parseInt(awayTeamId),
+                predictedHomeScore: prediction.predictedScore.home,
+                predictedAwayScore: prediction.predictedScore.away,
+                homeWinProbability: prediction.homeTeamWinProbability,
+                awayWinProbability: prediction.awayTeamWinProbability,
+                confidence: prediction.factors.confidence,
+                gameStartTime: new Date(),
+                gameStatus: 'SCHEDULED'
+            });
+
+            return prediction;
+
         } catch (error) {
             console.error('Error in prediction service:', error);
             // Return a safe default prediction

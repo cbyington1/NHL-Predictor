@@ -1,8 +1,9 @@
-// index.ts
+// src/index.ts
 import express from 'express';
 import cors from 'cors';
 import HockeyStatsService from './services/HockeyStatsService';
 import PredictionService from './services/PredictionService';
+import DatabaseService from './services/DatabaseService';
 import { getNHLTeamId } from './utils/teamMapping';
 
 const app = express();
@@ -70,7 +71,6 @@ app.get('/api/hockey/teams', async (req, res) => {
             name: team.team.displayName,
             abbreviation: team.team.abbreviation,
             espnId: team.team.id,
-            // We'll leave nhlId empty for now as it's handled by the mapping
             nhlId: null
         }));
 
@@ -99,13 +99,51 @@ app.get('/api/hockey/predict/:homeTeamId/:awayTeamId', async (req, res) => {
     }
 });
 
+// New database-related endpoints
+app.get('/api/predictions/recent', async (req, res) => {
+    try {
+        const predictions = await DatabaseService.getRecentPredictions();
+        res.json(predictions);
+    } catch (error) {
+        console.error('Error fetching recent predictions:', error);
+        res.status(500).json({ error: 'Failed to fetch predictions' });
+    }
+});
+
+app.get('/api/predictions/accuracy', async (req, res) => {
+    try {
+        const accuracy = await DatabaseService.getPredictionAccuracy();
+        res.json(accuracy);
+    } catch (error) {
+        console.error('Error fetching prediction accuracy:', error);
+        res.status(500).json({ error: 'Failed to fetch accuracy' });
+    }
+});
+
+app.post('/api/predictions/update-result/:gameId', async (req, res) => {
+    try {
+        const { gameId } = req.params;
+        const { actualHomeScore, actualAwayScore, wasCorrect, gameStatus } = req.body;
+        
+        const updated = await DatabaseService.updateGameResult(parseInt(gameId), {
+            actualHomeScore,
+            actualAwayScore,
+            wasCorrect,
+            gameStatus
+        });
+        
+        res.json(updated);
+    } catch (error) {
+        console.error('Error updating game result:', error);
+        res.status(500).json({ error: 'Failed to update game result' });
+    }
+});
+
 // Initialize server
 async function startServer() {
     try {
-        // Initialize team mapping
         await getNHLTeamId('1'); // This will trigger the initialization
 
-        // Start listening only after initialization
         app.listen(port, () => {
             console.log(`Server running on http://localhost:${port}`);
         });
