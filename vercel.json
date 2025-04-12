@@ -1,6 +1,10 @@
 {
     "version": 2,
-    "rewrites": [
-      { "source": "/(.*)", "destination": "/index.html" }
+    "routes": [
+      { "src": "/(tabs)/dashboard", "dest": "/index.html" },
+      { "src": "/(tabs)/stats", "dest": "/index.html" },
+      { "src": "/dashboard", "dest": "/index.html" },
+      { "src": "/stats", "dest": "/index.html" },
+      { "src": "/(.*)", "dest": "/index.html" }
     ]
   }
