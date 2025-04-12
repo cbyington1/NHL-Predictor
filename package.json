@@ -3,8 +3,13 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "node server.js"
-  },
+  "start": "expo start",
+  "android": "expo start --android",
+  "ios": "expo start --ios",
+  "web": "expo start --web",
+  "test": "jest --watchAll",
+  "vercel-build": "expo export:web"
+},
   "jest": {
     "preset": "jest-expo"
   },
