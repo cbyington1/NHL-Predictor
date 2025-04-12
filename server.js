@@ -2,32 +2,27 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+// Create HTTP server
 const server = http.createServer((req, res) => {
-  // Handle health check explicitly
-  if (req.url === '/' || req.url === '/health') {
-    res.writeHead(200, {'Content-Type': 'text/html'});
-    fs.readFile(path.join(__dirname, 'index.html'), (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end('Error loading index.html');
-        return;
-      }
-      res.end(data);
-    });
+  console.log(`Request received: ${req.method} ${req.url}`);
+  
+  // Handle all paths - explicit for health checks
+  if (req.url === '/' || req.url === '/health' || req.url === '/healthz') {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html');
+    res.end('<html><body><h1>NHL Predictor</h1><p>Server is healthy and running!</p></body></html>');
   } else {
-    // Handle other routes
-    res.writeHead(200, {'Content-Type': 'text/plain'});
+    // Default response for any other path
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
     res.end('NHL Predictor API');
   }
 });
 
+// Get port from environment variable
 const PORT = process.env.PORT || 3000;
-// Make sure to listen on all interfaces (0.0.0.0)
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-});
 
-// Log when requests come in (for debugging)
-server.on('request', (req, res) => {
-  console.log(`Received request for: ${req.url}`);
+// Start server listening on all interfaces
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT} (http://0.0.0.0:${PORT})`);
 });
