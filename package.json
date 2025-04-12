@@ -2,13 +2,13 @@
   "name": "nhl-predictor",
   "main": "expo-router/entry",
   "version": "1.0.0",
-  "scripts": {
+ "scripts": {
   "start": "expo start",
   "android": "expo start --android",
   "ios": "expo start --ios",
   "web": "expo start --web",
   "test": "jest --watchAll",
-  "vercel-build": "expo export"
+  "vercel-build": "expo export && node fix-routes.js"
 },
   "jest": {
     "preset": "jest-expo"
