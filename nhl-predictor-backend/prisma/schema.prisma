@@ -8,7 +8,7 @@ datasource db {
 }
 
 model Prediction {
-  id                  Int      @id @default(autoincrement())  // Added parentheses here
+  id                  Int      @id @default(autoincrement())
   gameId              Int     
   homeTeamId          Int     
   awayTeamId          Int
@@ -26,5 +26,7 @@ model Prediction {
   actualAwayScore     Int?
   wasCorrect          Boolean?
 
+  // Add a unique constraint to prevent duplicates
+  @@unique([gameId, homeTeamId, awayTeamId], name: "gameId_homeTeamId_awayTeamId")
   @@index([gameId])
 }

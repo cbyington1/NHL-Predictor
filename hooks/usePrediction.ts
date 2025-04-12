@@ -34,7 +34,7 @@ export function usePrediction(game: Game) {
                 setLoading(true);
                 setError(null);
                 const response = await fetch(
-                    `http://localhost:3000/api/hockey/predict/${game.homeTeam.id}/${game.awayTeam.id}`
+                    `http://localhost:3000/api/hockey/predict/${game.homeTeam.id}/${game.awayTeam.id}?espnGameId=${game.id}`
                 );
                 
                 if (!response.ok) {
@@ -51,7 +51,7 @@ export function usePrediction(game: Game) {
         };
 
         fetchPrediction();
-    }, [game.homeTeam.id, game.awayTeam.id]);
+    }, [game.homeTeam.id, game.awayTeam.id, game.id]);
 
     return { prediction, loading, error };
 }

@@ -1,5 +1,6 @@
-import React from 'react';
-import { Modal, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+// PredictionModal.tsx with CSS animations
+import React, { useEffect, useState } from 'react';
+import { Modal, View, Text, Pressable, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import type { Game } from '@/types/index';
 import { usePrediction } from '../hooks/usePrediction';
 
@@ -11,13 +12,42 @@ interface PredictionModalProps {
 
 export default function PredictionModal({ visible, onClose, game }: PredictionModalProps) {
     const { prediction, loading, error } = usePrediction(game);
+    const [animateIn, setAnimateIn] = useState(false);
+    const [showFactors, setShowFactors] = useState(false);
+    const [homeBarWidth, setHomeBarWidth] = useState(0);
+    const [awayBarWidth, setAwayBarWidth] = useState(0);
+    
+    // Trigger animations when prediction is loaded and modal is visible
+    useEffect(() => {
+        if (prediction && visible) {
+            // Reset animation states
+            setAnimateIn(false);
+            setShowFactors(false);
+            setHomeBarWidth(0);
+            setAwayBarWidth(0);
+            
+            // Trigger animations in sequence
+            setTimeout(() => setAnimateIn(true), 10);
+            
+            // Animate probability bars after a slight delay
+            setTimeout(() => {
+                setHomeBarWidth(prediction.homeTeamWinProbability);
+                setAwayBarWidth(prediction.awayTeamWinProbability);
+            }, 300);
+            
+            // Fade in factors after bars animate
+            setTimeout(() => {
+                setShowFactors(true);
+            }, 700);
+        }
+    }, [prediction, visible]);
 
-    const renderProbabilityBar = (probability: number) => (
+    const renderProbabilityBar = (probability: number, width: number) => (
         <View style={styles.probabilityBarContainer}>
             <View 
                 style={[
                     styles.probabilityFill, 
-                    { width: `${probability}%` },
+                    { width: `${width}%`, transition: 'width 0.8s ease-out' },
                     probability > 60 ? styles.highProbability : 
                     probability > 40 ? styles.mediumProbability : 
                     styles.lowProbability
@@ -26,6 +56,35 @@ export default function PredictionModal({ visible, onClose, game }: PredictionMo
         </View>
     );
 
+    // Function to get advantage description
+    const getAdvantageDescription = (homeValue: number, awayValue: number) => {
+        // Normalize the values
+        const normalizedHome = Math.min(homeValue, 15);
+        const normalizedAway = Math.min(awayValue, 15);
+        
+        // Calculate percent difference
+        const minValue = Math.max(Math.min(normalizedHome, normalizedAway), 0.1);
+        const maxValue = Math.max(normalizedHome, normalizedAway);
+        const percentDiff = ((maxValue - minValue) / minValue) * 100;
+        
+        // Determine which team has the advantage
+        const homeAdvantage = normalizedHome > normalizedAway;
+        const teamWithAdvantage = homeAdvantage ? game.homeTeam.name : game.awayTeam.name;
+        
+        // Convert to descriptive text
+        if (percentDiff < 10) {
+            return "Evenly matched";
+        } else if (percentDiff < 25) {
+            return `Slight advantage to ${teamWithAdvantage}`;
+        } else if (percentDiff < 50) {
+            return `Advantage to ${teamWithAdvantage}`;
+        } else if (percentDiff < 100) {
+            return `Strong advantage to ${teamWithAdvantage}`;
+        } else {
+            return `Dominant advantage to ${teamWithAdvantage}`;
+        }
+    };
+
     return (
         <Modal
             visible={visible}
@@ -33,7 +92,24 @@ export default function PredictionModal({ visible, onClose, game }: PredictionMo
             transparent
         >
             <Pressable style={styles.overlay} onPress={onClose}>
-                <View style={styles.modalContent}>
+                {/* Initial loading indicator that shows immediately on background blur */}
+                {!animateIn && (
+                    <View style={styles.initialLoadingContainer}>
+                        <ActivityIndicator size="large" color="white" />
+                    </View>
+                )}
+                <View 
+                    style={[
+                        styles.modalContent,
+                        {
+                            opacity: animateIn ? 1 : 0,
+                            transform: [{ scale: animateIn ? 1 : 0.9 }],
+                            ...(Platform.OS === 'web' && {
+                                transition: 'opacity 0.3s ease, transform 0.3s ease',
+                            })
+                        }
+                    ]}
+                >
                     {loading ? (
                         <ActivityIndicator size="large" color="#3b82f6" />
                     ) : error ? (
@@ -58,7 +134,7 @@ export default function PredictionModal({ visible, onClose, game }: PredictionMo
                                     ]}>
                                         {prediction.homeTeamWinProbability.toFixed(1)}%
                                     </Text>
-                                    {renderProbabilityBar(prediction.homeTeamWinProbability)}
+                                    {renderProbabilityBar(prediction.homeTeamWinProbability, homeBarWidth)}
                                 </View>
                                 
                                 <View style={styles.vsContainer}>
@@ -71,31 +147,79 @@ export default function PredictionModal({ visible, onClose, game }: PredictionMo
                                         styles.probability,
                                         prediction.awayTeamWinProbability > 60 ? styles.highProbabilityText :
                                         prediction.awayTeamWinProbability > 40 ? styles.mediumProbabilityText :
+                                        prediction.awayTeamWinProbability > 40 ? styles.mediumProbabilityText :
                                         styles.lowProbabilityText
                                     ]}>
                                         {prediction.awayTeamWinProbability.toFixed(1)}%
                                     </Text>
-                                    {renderProbabilityBar(prediction.awayTeamWinProbability)}
+                                    {renderProbabilityBar(prediction.awayTeamWinProbability, awayBarWidth)}
                                 </View>
                             </View>
 
-                            <View style={styles.factorsContainer}>
-                                <Text style={styles.factorsTitle}>Contributing Factors</Text>
+                            <View 
+                                style={[
+                                    styles.factorsContainer,
+                                    { 
+                                        opacity: showFactors ? 1 : 0,
+                                        transform: [{ translateY: showFactors ? 0 : 20 }],
+                                        ...(Platform.OS === 'web' && {
+                                            transition: 'opacity 0.3s ease, transform 0.3s ease',
+                                        })
+                                    }
+                                ]}
+                            >
+                                <Text style={styles.factorsTitle}>Team Advantages</Text>
+                                
                                 <View style={styles.factorRow}>
-                                    <Text style={styles.factorLabel}>Offensive Rating:</Text>
+                                    <Text style={styles.factorLabel}>Offense:</Text>
                                     <Text style={styles.factorValue}>
-                                        {prediction.factors.homeAdvantage.offense.toFixed(2)} vs {prediction.factors.awayAdvantage.offense.toFixed(2)}
+                                        {getAdvantageDescription(
+                                            prediction.factors.homeAdvantage.offense,
+                                            prediction.factors.awayAdvantage.offense
+                                        )}
                                     </Text>
                                 </View>
+                                
                                 <View style={styles.factorRow}>
-                                    <Text style={styles.factorLabel}>Defensive Rating:</Text>
+                                    <Text style={styles.factorLabel}>Defense:</Text>
                                     <Text style={styles.factorValue}>
-                                        {prediction.factors.homeAdvantage.defense.toFixed(2)} vs {prediction.factors.awayAdvantage.defense.toFixed(2)}
+                                        {getAdvantageDescription(
+                                            prediction.factors.homeAdvantage.defense,
+                                            prediction.factors.awayAdvantage.defense
+                                        )}
                                     </Text>
+                                </View>
+                                
+                                <View style={styles.factorRow}>
+                                    <Text style={styles.factorLabel}>Special Teams:</Text>
+                                    <Text style={styles.factorValue}>
+                                        {getAdvantageDescription(
+                                            prediction.factors.homeAdvantage.special,
+                                            prediction.factors.awayAdvantage.special
+                                        )}
+                                    </Text>
+                                </View>
+                                
+                                <View style={styles.factorRow}>
+                                    <Text style={styles.factorLabel}>Home Ice:</Text>
+                                    <Text style={styles.factorValue}>Advantage to {game.homeTeam.name}</Text>
                                 </View>
                             </View>
 
-                            <Pressable style={styles.closeButton} onPress={onClose}>
+                            <Pressable 
+                                style={[
+                                    styles.closeButton,
+                                    {
+                                        opacity: showFactors ? 1 : 0.5,
+                                        transform: [{ translateY: showFactors ? 0 : 10 }],
+                                        ...(Platform.OS === 'web' && {
+                                            transition: 'opacity 0.3s ease, transform 0.3s ease',
+                                            transitionDelay: '100ms'
+                                        })
+                                    }
+                                ]} 
+                                onPress={onClose}
+                            >
                                 <Text style={styles.closeButtonText}>Close</Text>
                             </Pressable>
                         </>
@@ -208,6 +332,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 8,
+        paddingBottom: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e2e8f0',
     },
     factorLabel: {
         fontSize: 16,
@@ -239,5 +366,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginBottom: 16,
         textAlign: 'center',
+    },
+    initialLoadingContainer: {
+        position: 'absolute',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });

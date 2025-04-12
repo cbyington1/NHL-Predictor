@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
-  FlatList,
   ScrollView,
   ActivityIndicator,
   RefreshControl,
@@ -16,87 +15,6 @@ import type { Game, UserPrediction } from '@/types/index';
 // Debug helper
 const DEBUG = true;
 const log = (...args: any[]) => DEBUG && console.log(...args);
-
-// Web style injection moved to a useEffect hook
-const useWebStyles = () => {
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      // Check if the style element already exists
-      const existingStyle = document.getElementById('games-by-day-styles');
-      if (existingStyle) return;
-
-      const style = document.createElement('style');
-      style.id = 'games-by-day-styles';
-      style.textContent = `
-        /* Custom scrollbar styles */
-        ::-webkit-scrollbar {
-          width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-          background: #1e293b;
-          border-radius: 3px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-          background: #475569;
-          border-radius: 3px;
-          border: 1px solid #1e293b;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-          background: #64748b;
-        }
-
-        * {
-          scrollbar-width: thin;
-          scrollbar-color: #475569 #1e293b;
-        }
-
-        /* Focus effect styles */
-        .games-container {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .games-container.focused {
-          background-color: rgba(15, 23, 42, 0.97);
-        }
-        
-        .games-container.focused .navigation-container {
-          opacity: 0.3;
-          transform: translateY(-10px);
-        }
-        
-        .games-container.focused .game-wrapper:not(:hover) {
-          opacity: 0.5;
-          transform: scale(0.98);
-          filter: saturate(0.8);
-        }
-
-        .navigation-container {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .game-wrapper {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .game-wrapper:hover {
-          transform: translateY(-4px);
-        }
-      `;
-      document.head.appendChild(style);
-
-      // Cleanup function to remove the style when component unmounts
-      return () => {
-        const styleElement = document.getElementById('games-by-day-styles');
-        if (styleElement) {
-          styleElement.remove();
-        }
-      };
-    }
-  }, []); // Empty dependency array since this should only run once
-};
 
 const generateWeekDates = (): string[] => {
   const dates: string[] = [];
@@ -153,12 +71,72 @@ const GamesByDay: React.FC<GamesByDayProps> = ({
   selectedGame,
   renderGameCard,
 }) => {
-  // Initialize web styles
-  useWebStyles();
-
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [isHovering, setIsHovering] = useState(false);
-  const gamesListRef = useRef<any>(null);
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const scrollViewRef = useRef<any>(null);
+  
+  // Disable the ScrollViewStyleReset from expo-router on web
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Find and remove the ScrollViewStyleReset style
+      document.querySelectorAll('style').forEach(style => {
+        if (style.innerHTML.includes('overflow: hidden') || 
+            style.innerHTML.includes('position: fixed')) {
+          // Override with our own styles instead of removing
+          const overrideStyle = document.createElement('style');
+          overrideStyle.innerHTML = `
+            html, body {
+              overflow: auto !important;
+              position: relative !important;
+              height: 100% !important;
+              width: 100% !important;
+            }
+            
+            #root {
+              height: 100%;
+              overflow: auto;
+            }
+            
+            .scrollable-container {
+              height: calc(100vh - 180px); /* Account for tab bar (60px) + date selector (60px) + extra padding (60px) */
+              overflow: auto !important;
+              position: relative !important;
+              display: block !important;
+              padding-bottom: 60px; /* Add padding at the bottom to prevent content from being hidden behind the tab bar */
+            }
+
+            /* Custom scrollbar styling */
+            ::-webkit-scrollbar {
+              width: 8px;
+              height: 8px;
+            }
+            
+            ::-webkit-scrollbar-track {
+              background: #1e293b;
+              border-radius: 4px;
+            }
+            
+            ::-webkit-scrollbar-thumb {
+              background: #3b82f6;
+              border-radius: 4px;
+            }
+            
+            ::-webkit-scrollbar-thumb:hover {
+              background: #60a5fa;
+            }
+            
+            /* Firefox scrollbar */
+            * {
+              scrollbar-width: thin;
+              scrollbar-color: #3b82f6 #1e293b;
+            }
+          `;
+          document.head.appendChild(overrideStyle);
+        }
+      });
+    }
+  }, []);
 
   const dates = useMemo(() => {
     const generatedDates = generateWeekDates();
@@ -211,7 +189,10 @@ const GamesByDay: React.FC<GamesByDayProps> = ({
 
   useEffect(() => {
     log('Date changed to:', selectedDate);
-    gamesListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    // Scroll to top when date changes
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ x: 0, y: 0, animated: true });
+    }
   }, [selectedDate]);
 
   // Add hover handlers for game cards
@@ -221,23 +202,11 @@ const GamesByDay: React.FC<GamesByDayProps> = ({
     }
   };
 
-  // Wrap each game card with hover detection
-  const renderGameWrapper = (props: {
-    item: Game;
-    onSelect: (gameId: number) => void;
-    selected: boolean;
-    hasPrediction: boolean;
-  }) => {
-    return (
-      <View
-        style={styles.gameWrapper}
-        onMouseEnter={() => handleGameHover(true)}
-        onMouseLeave={() => handleGameHover(false)}
-        className="game-wrapper"
-      >
-        {renderGameCard(props)}
-      </View>
-    );
+  // New handlers for date button hover
+  const handleDateHover = (date: string, isHovered: boolean) => {
+    if (Platform.OS === 'web') {
+      setHoveredDate(isHovered ? date : null);
+    }
   };
 
   if (loading && !refreshing) {
@@ -252,14 +221,8 @@ const GamesByDay: React.FC<GamesByDayProps> = ({
   log('Current games for', selectedDate, ':', currentGames.length);
 
   return (
-    <View 
-      style={styles.container}
-      className={`games-container ${isHovering ? 'focused' : ''}`}
-    >
-      <View 
-        style={styles.navigationContainer}
-        className="navigation-container"
-      >
+    <View style={styles.container}>
+      <View style={styles.navigationContainer}>
         <ScrollView 
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -273,6 +236,8 @@ const GamesByDay: React.FC<GamesByDayProps> = ({
                 date === selectedDate && styles.selectedDate
               ]}
               onPress={() => setSelectedDate(date)}
+              onHoverIn={() => handleDateHover(date, true)}
+              onHoverOut={() => handleDateHover(date, false)}
             >
               <Text 
                 style={[
@@ -282,6 +247,18 @@ const GamesByDay: React.FC<GamesByDayProps> = ({
               >
                 {formatDate(date)}
               </Text>
+              
+              {/* Show game count only when hovering */}
+              {gamesByDate[date]?.length > 0 && date === hoveredDate && (
+                <View style={[
+                  styles.countBadge,
+                  Platform.OS === 'web' && {
+                    animation: 'fadeIn 0.2s ease-in-out',
+                  }
+                ]}>
+                  <Text style={styles.countText}>{gamesByDate[date].length}</Text>
+                </View>
+              )}
             </Pressable>
           ))}
           
@@ -316,30 +293,66 @@ const GamesByDay: React.FC<GamesByDayProps> = ({
       </View>
 
       {currentGames.length > 0 ? (
-        <FlatList<Game>
-          ref={gamesListRef}
-          data={currentGames}
-          renderItem={({ item }: { item: Game }) =>
-            renderGameWrapper({
-              item,
-              onSelect: onGameSelect,
-              selected: selectedGame?.id === item.id,
-              hasPrediction: predictions.some((pred) => pred.gameId === item.id),
-            })
-          }
-          keyExtractor={(item: Game) => item.id.toString()}
-          contentContainerStyle={styles.gamesContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#60a5fa']}
-              tintColor="#60a5fa"
-              progressBackgroundColor="#1e293b"
-            />
-          }
-          style={Platform.OS === 'web' ? { outline: 'none' } : {}}
-        />
+        Platform.OS === 'web' ? (
+          <div className="scrollable-container" style={{ 
+            height: 'calc(100vh - 180px)', 
+            overflow: 'auto',
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#3b82f6 #1e293b',
+            paddingBottom: '60px' /* Space for tab bar */
+          }}>
+            <div style={{ paddingBottom: 120 }}>
+              {currentGames.map((game) => (
+                <div 
+                  key={game.id} 
+                  style={{ margin: '8px 20px' }}
+                  onMouseEnter={() => handleGameHover(true)}
+                  onMouseLeave={() => handleGameHover(false)}
+                >
+                  {renderGameCard({
+                    item: game,
+                    onSelect: onGameSelect,
+                    selected: selectedGame?.id === game.id,
+                    hasPrediction: predictions.some((pred) => pred.gameId === game.id),
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.gamesList}
+            contentContainerStyle={styles.gamesListContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#60a5fa']}
+                tintColor="#60a5fa"
+                progressBackgroundColor="#1e293b"
+              />
+            }
+          >
+            {currentGames.map((game) => (
+              <View 
+                key={game.id}
+                style={styles.gameCardWrapper}
+                onTouchStart={() => handleGameHover(true)}
+                onTouchEnd={() => handleGameHover(false)}
+              >
+                {renderGameCard({
+                  item: game,
+                  onSelect: onGameSelect,
+                  selected: selectedGame?.id === game.id,
+                  hasPrediction: predictions.some((pred) => pred.gameId === game.id),
+                })}
+              </View>
+            ))}
+            {/* Extra padding at bottom to account for tab bar and ensure last card is fully visible */}
+            <View style={{ height: 120 }} />
+          </ScrollView>
+        )
       ) : (
         <View style={styles.noGamesContainer}>
           <Text style={styles.noGamesText}>
@@ -354,10 +367,7 @@ const GamesByDay: React.FC<GamesByDayProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    ...(Platform.OS === 'web' && {
-      height: 'calc(100vh - 60px)', // Account for tab bar
-      overflow: 'auto',
-    }),
+    backgroundColor: '#0f172a',
   },
   centeredContainer: {
     flex: 1,
@@ -373,11 +383,7 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    ...(Platform.OS === 'web' && {
-      position: 'sticky',
-      top: 0,
-      zIndex: 10,
-    }),
+    zIndex: 10,
   },
   scrollContent: {
     paddingVertical: 8,
@@ -389,6 +395,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     borderRadius: 20,
     backgroundColor: '#334155',
+    position: 'relative',
   },
   selectedDate: {
     backgroundColor: '#2563eb',
@@ -399,6 +406,31 @@ const styles = StyleSheet.create({
   },
   selectedDateText: {
     color: '#fff',
+  },
+  countBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#60a5fa',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...(Platform.OS === 'web' && {
+      transition: 'all 0.2s ease-in-out',
+      // Add simple fade-in animation for web
+      '@keyframes fadeIn': {
+        from: { opacity: 0, transform: 'scale(0.8)' },
+        to: { opacity: 1, transform: 'scale(1)' }
+      }
+    })
+  },
+  countText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+    paddingHorizontal: 6,
   },
   arrowsContainer: {
     flexDirection: 'row',
@@ -413,19 +445,21 @@ const styles = StyleSheet.create({
   arrowDisabled: {
     opacity: 0.5,
   },
-  gamesContainer: {
-    paddingBottom: 80,
+  gamesList: {
+    flex: 1,
   },
-  gameWrapper: {
-    marginHorizontal: 8,
-    marginVertical: 4,
+  gamesListContent: {
+    paddingTop: 8,
+  },
+  gameCardWrapper: {
+    marginHorizontal: 20,
+    marginVertical: 8,
   },
   noGamesContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    marginBottom: 60,
   },
   noGamesText: {
     fontSize: 16,

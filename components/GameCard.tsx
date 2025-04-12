@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, Image, StyleSheet, Platform } from 'react-native';
 import type { Game, Team } from '../types/index';
 
@@ -66,8 +66,137 @@ const createGradient = (color1: string, color2: string, opacity: number = 1) => 
   )`;
 };
 
+// Function to check if the date is today
+const isToday = (dateString: string): boolean => {
+  const today = new Date();
+  const date = new Date(dateString);
+  
+  return today.getDate() === date.getDate() && 
+         today.getMonth() === date.getMonth() && 
+         today.getFullYear() === date.getFullYear();
+};
+
+// Function to calculate time remaining until game start
+const getTimeRemaining = (gameTime: string, gameStatus?: string) => {
+  // Check if game has finished
+  if (gameStatus === 'final') {
+    return { 
+      hours: 0,
+      minutes: 0,
+      isPast: true,
+      isFinished: true,
+      total: 0,
+      percentage: 100
+    };
+  }
+  
+  // Check if game is live
+  if (gameStatus === 'live') {
+    return { 
+      hours: 0,
+      minutes: 0,
+      isPast: true,
+      isLive: true,
+      total: 0,
+      percentage: 100
+    };
+  }
+  
+  const now = new Date();
+  const gameDate = new Date(gameTime);
+  
+  // Difference in milliseconds
+  const diff = gameDate.getTime() - now.getTime();
+  
+  // Convert to hours and minutes
+  const isPast = diff < 0;
+  const absDiff = Math.abs(diff);
+  const totalMinutes = Math.floor(absDiff / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  
+  // Calculate percentage for visualization (0-100)
+  // Show a full circle for games >24h away, animate down as we get closer
+  const percentage = Math.min(100, Math.max(0, 100 - (totalMinutes / (24 * 60)) * 100));
+  
+  return { 
+    hours, 
+    minutes, 
+    isPast, 
+    isFinished: false,
+    isLive: false,
+    total: totalMinutes,
+    percentage: isPast ? 100 : percentage 
+  };
+};
+
+// Function to format time for display
+const getTimeDisplay = (timeData: ReturnType<typeof getTimeRemaining>) => {
+  if (timeData.isFinished) {
+    return 'Final';
+  }
+  
+  if (timeData.isLive) {
+    return 'Live';
+  }
+  
+  if (timeData.isPast) {
+    return '';
+  }
+  
+  if (timeData.total < 60) {
+    // Less than an hour - show minutes
+    return `${timeData.minutes}m`;
+  }
+  
+  if (timeData.total < 60 * 24) {
+    // Less than a day - show hours
+    return `${timeData.hours}h`;
+  }
+  
+  // Don't show time for days in the future
+  return '';
+};
+
+// Function to get color based on time remaining
+const getTimeColor = (timeData: ReturnType<typeof getTimeRemaining>) => {
+  if (timeData.isFinished) {
+    return '#64748b'; // Gray for finished games
+  }
+  
+  if (timeData.isLive) {
+    return '#ef4444'; // Red for live games
+  }
+  
+  if (timeData.isPast) {
+    return '#64748b'; // Gray for past games
+  }
+  
+  if (timeData.total < 60) {
+    return '#f59e0b'; // Amber for < 1 hour
+  }
+  
+  if (timeData.total < 60 * 3) {
+    return '#3b82f6'; // Blue for < 3 hours
+  }
+  
+  return '#64748b'; // Slate for other times
+};
+
 export default function GameCard({ game, onSelect, selected, hasPrediction }: GameCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [timeData, setTimeData] = useState(getTimeRemaining(game.startTime, game.status));
+  
+  // Update time remaining every minute
+  useEffect(() => {
+    setTimeData(getTimeRemaining(game.startTime, game.status));
+    
+    const interval = setInterval(() => {
+      setTimeData(getTimeRemaining(game.startTime, game.status));
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, [game.startTime, game.status]);
   
   const gameDate = new Date(game.startTime);
   const displayDate = new Date(gameDate.getTime() + (Math.abs(new Date().getTimezoneOffset()) * 60000));
@@ -79,6 +208,18 @@ export default function GameCard({ game, onSelect, selected, hasPrediction }: Ga
 
   const homeTeamColor = getTeamColor(game.homeTeam.name);
   const awayTeamColor = getTeamColor(game.awayTeam.name);
+  
+  // Only show time indicator for today's games
+  const showTimeIndicator = isToday(game.startTime);
+
+  // SVG dimensions for time circle
+  const width = 28;
+  const height = 28;
+  const strokeWidth = 2;
+  const radius = (width / 2) - (strokeWidth / 2);
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (timeData.percentage / 100) * circumference;
+  const timeColor = getTimeColor(timeData);
 
   const renderRecord = (record: Team['record']) => {
     return (
@@ -260,6 +401,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+    position: 'relative',
   },
   time: {
     fontSize: 16,
@@ -271,11 +413,30 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 2,
   },
+  timeIndicator: {
+    position: 'absolute',
+    top: 43, // Position to overlap with header
+    right: 16,
+    zIndex: 20,
+  },
+  timeCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeText: {
+    fontSize: 9,
+    fontWeight: '600',
+  },
   teamsContainer: {
     flexDirection: 'row',
     padding: 16,
     alignItems: 'center',
     justifyContent: 'space-between',
+    position: 'relative',
   },
   teamSection: {
     flex: 1,

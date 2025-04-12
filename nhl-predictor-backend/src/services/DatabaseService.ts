@@ -1,4 +1,3 @@
-// src/services/DatabaseService.ts
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -22,6 +21,26 @@ interface Prediction {
 }
 
 class DatabaseService {
+    /**
+     * Check if a prediction already exists for the given gameId
+     */
+    static async predictionExists(gameId: number): Promise<boolean> {
+        try {
+            const count = await prisma.prediction.count({
+                where: { gameId }
+            });
+            return count > 0;
+        } catch (error) {
+            console.error('Error checking if prediction exists:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Save or update a prediction
+     * If a prediction with the same gameId already exists, it will be updated
+     * Otherwise, a new prediction will be created
+     */
     static async savePrediction(predictionData: {
         gameId: number;
         homeTeamId: number;
@@ -35,9 +54,38 @@ class DatabaseService {
         gameStatus: string;
     }) {
         try {
-            return await prisma.prediction.create({
-                data: predictionData
+            // First check if a prediction for this game already exists
+            const existingPrediction = await prisma.prediction.findFirst({
+                where: {
+                    gameId: predictionData.gameId,
+                    homeTeamId: predictionData.homeTeamId,
+                    awayTeamId: predictionData.awayTeamId
+                }
             });
+
+            if (existingPrediction) {
+                // Update the existing prediction
+                return await prisma.prediction.update({
+                    where: {
+                        id: existingPrediction.id
+                    },
+                    data: {
+                        // Update all fields except createdAt
+                        predictedHomeScore: predictionData.predictedHomeScore,
+                        predictedAwayScore: predictionData.predictedAwayScore,
+                        homeWinProbability: predictionData.homeWinProbability,
+                        awayWinProbability: predictionData.awayWinProbability,
+                        confidence: predictionData.confidence,
+                        gameStartTime: predictionData.gameStartTime,
+                        gameStatus: predictionData.gameStatus
+                    }
+                });
+            } else {
+                // Create a new prediction
+                return await prisma.prediction.create({
+                    data: predictionData
+                });
+            }
         } catch (error) {
             console.error('Error saving prediction:', error);
             throw error;
@@ -110,6 +158,79 @@ class DatabaseService {
             throw error;
         }
     }
+
+    /**
+     * Clean up duplicate predictions for the same gameId
+     * This is a utility method to fix existing duplicates in the database
+     */
+    static async cleanupDuplicatePredictions() {
+        try {
+            // Step 1: Find all gameIds that have multiple predictions
+            const duplicateGameIds = await prisma.$queryRaw<{gameId: number, count: bigint}[]>`
+                SELECT "gameId", COUNT(*) as count
+                FROM "Prediction"
+                GROUP BY "gameId"
+                HAVING COUNT(*) > 1
+            `;
+
+            console.log(`Found ${duplicateGameIds.length} games with duplicate predictions`);
+            
+            let cleanedCount = 0;
+
+            // Step 2: For each duplicated gameId, keep only the most recent prediction
+            for (const { gameId } of duplicateGameIds) {
+                // Get all predictions for this gameId, ordered by createdAt DESC
+                const predictions = await prisma.prediction.findMany({
+                    where: { gameId },
+                    orderBy: { createdAt: 'desc' }
+                });
+
+                // Keep the most recent one (index 0) and delete the rest
+                if (predictions.length > 1) {
+                    const mostRecent = predictions[0];
+                    const idsToDelete = predictions.slice(1).map(p => p.id);
+                    
+                    // Delete the older duplicates
+                    await prisma.prediction.deleteMany({
+                        where: { 
+                            id: { 
+                                in: idsToDelete 
+                            } 
+                        }
+                    });
+                    
+                    cleanedCount += idsToDelete.length;
+                }
+            }
+
+            return {
+                duplicateGamesFound: duplicateGameIds.length,
+                predictionsRemoved: cleanedCount
+            };
+        } catch (error) {
+            console.error('Error cleaning up duplicate predictions:', error);
+            throw error;
+        }
+    }
+
+    static async getCompletedPredictions() {
+        try {
+          return await prisma.prediction.findMany({
+            where: {
+              gameStatus: 'FINAL',
+              actualHomeScore: { not: null },
+              actualAwayScore: { not: null }
+            },
+            orderBy: {
+              gameStartTime: 'desc' // Sort by game date, not creation date
+            }
+          });
+        } catch (error) {
+          console.error('Error fetching completed predictions:', error);
+          throw error;
+        }
+      }
+    
 }
 
 export default DatabaseService;

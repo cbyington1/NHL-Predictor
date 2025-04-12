@@ -1,3 +1,4 @@
+// src/services/PredictionService.ts
 import HockeyStatsService from './HockeyStatsService';
 import DatabaseService from './DatabaseService';
 
@@ -167,7 +168,7 @@ class PredictionService {
                 this.safeNumber(homeAdvantage.efficiencyFactor) * 0.1 +
                 this.safeNumber(homeAdvantage.momentumFactor) * 0.1
             );
-
+    
             const awayScore = (
                 this.safeNumber(awayAdvantage.offense) * 0.3 +
                 this.safeNumber(awayAdvantage.defense) * 0.3 +
@@ -175,16 +176,47 @@ class PredictionService {
                 this.safeNumber(awayAdvantage.efficiencyFactor) * 0.1 +
                 this.safeNumber(awayAdvantage.momentumFactor) * 0.1
             );
-
+    
             const differential = homeScore - awayScore;
-            const homeProb = 1 / (1 + Math.exp(-differential));
+            
+            // Apply dampening function for high confidence predictions
+            // This uses a sigmoid function that's harder to get to extreme values
+            const dampening = (x: number): number => {
+                // Parameters to control the dampening effect
+                const steepness = 0.7;  // Lower values create more dampening (harder to reach extremes)
+                const threshold = 0.75; // Point after which dampening increases (75%)
+                
+                // Base sigmoid
+                let baseProb = 1 / (1 + Math.exp(-x * steepness));
+                
+                // Apply additional dampening for values that would result in >threshold predictions
+                if (baseProb > threshold) {
+                    // Calculate how far above threshold
+                    const excess = baseProb - threshold;
+                    // Apply a more aggressive dampening to this excess
+                    const dampenedExcess = excess * (1 - excess * 0.5);
+                    // Combine the threshold with dampened excess
+                    return threshold + dampenedExcess;
+                }
+                
+                // For values below threshold, return the base value
+                return baseProb;
+            };
+            
+            // Apply the dampening function to the raw differential
+            const homeProb = dampening(differential);
             const awayProb = 1 - homeProb;
-            const confidence = Math.min(Math.abs(differential) / (gamePace * 0.1), 1);
-
+            
+            // Calculate confidence - also with dampening for high values
+            const rawConfidence = Math.min(Math.abs(differential) / (gamePace * 0.1), 1);
+            const dampenedConfidence = rawConfidence < 0.8 ? 
+                                      rawConfidence : 
+                                      0.8 + (rawConfidence - 0.8) * 0.5;
+    
             return {
                 homeProb: homeProb * 100,
                 awayProb: awayProb * 100,
-                confidence
+                confidence: dampenedConfidence
             };
         } catch (error) {
             console.error('Error calculating win probability:', error);
@@ -196,7 +228,7 @@ class PredictionService {
         }
     }
 
-    static async getPrediction(homeTeamId: string, awayTeamId: string): Promise<PredictionResponse> {
+    static async getPrediction(homeTeamId: string, awayTeamId: string, espnGameId?: number, gameStartTime?: string): Promise<PredictionResponse> {
         try {
             const [homeStats, awayStats] = await Promise.all([
                 HockeyStatsService.getTeamStats(homeTeamId),
@@ -245,9 +277,13 @@ class PredictionService {
                 }
             };
 
+            // If we have a gameId (from ESPN), use it
+            // Otherwise, fall back to using the homeTeamId as a placeholder
+            const gameId = espnGameId || parseInt(homeTeamId);
+
             // Save prediction to database
             await DatabaseService.savePrediction({
-                gameId: parseInt(homeTeamId),
+                gameId: gameId,
                 homeTeamId: parseInt(homeTeamId),
                 awayTeamId: parseInt(awayTeamId),
                 predictedHomeScore: prediction.predictedScore.home,
@@ -255,7 +291,7 @@ class PredictionService {
                 homeWinProbability: prediction.homeTeamWinProbability,
                 awayWinProbability: prediction.awayTeamWinProbability,
                 confidence: prediction.factors.confidence,
-                gameStartTime: new Date(),
+                gameStartTime: gameStartTime ? new Date(gameStartTime) : new Date(), // Use actual game time if provided
                 gameStatus: 'SCHEDULED'
             });
 

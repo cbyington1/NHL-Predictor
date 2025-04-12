@@ -16,6 +16,7 @@ export default function TabLayout() {
         screenOptions={{
           tabBarActiveTintColor: '#60a5fa', // bright blue that matches theme
           tabBarInactiveTintColor: '#64748b', // slate-500 for more subtle inactive
+          headerShown: false, // Hide the headers completely
           tabBarStyle: {
             backgroundColor: '#0f172a', // slate-900 to match cards
             borderTopWidth: 1,
@@ -35,22 +36,6 @@ export default function TabLayout() {
               },
             }),
           },
-          headerStyle: {
-            backgroundColor: '#0f172a', // slate-900
-            borderBottomWidth: 1,
-            borderBottomColor: '#1e293b', // slate-800
-            elevation: 0,
-            shadowOpacity: 0,
-            height: 45, // Significantly reduced from 70
-            minHeight: 45, // Ensure it doesn't expand
-          },
-          headerTitleStyle: {
-            color: '#f8fafc', // slate-50
-            fontSize: 15,
-            fontWeight: '500',
-            marginTop: -5, // Pull the title up slightly
-          },
-          headerTintColor: '#f8fafc',
           tabBarLabelStyle: {
             fontSize: 12,
             fontWeight: '500',
@@ -67,9 +52,9 @@ export default function TabLayout() {
             title: 'Predictions',
             tabBarIcon: ({ color, size }) => (
               <View style={styles.iconContainer}>
-                <FontAwesome5 
-                  name="hockey-puck" 
-                  size={22} 
+                <FontAwesome5
+                  name="hockey-puck"
+                  size={22}
                   color={color}
                   style={styles.icon}
                 />
@@ -83,9 +68,9 @@ export default function TabLayout() {
             title: 'Stats',
             tabBarIcon: ({ color, size }) => (
               <View style={styles.iconContainer}>
-                <FontAwesome5 
-                  name="chart-line" 
-                  size={22} 
+                <FontAwesome5
+                  name="chart-line"
+                  size={22}
                   color={color}
                   style={styles.icon}
                 />

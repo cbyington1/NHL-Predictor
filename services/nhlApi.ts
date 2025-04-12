@@ -37,6 +37,13 @@ interface ESPNScheduleResponse {
   events: ESPNGameResponse[];
 }
 
+
+interface SeasonStatus {
+  isOffSeason: boolean;
+  message: string;
+  nextSeasonInfo?: string;
+}
+
 class NHLApiService {
   private static async getTeamRecord(team: ESPNTeamResponse): Promise<{ wins: number; losses: number; otl: number }> {
     const defaultRecord = { wins: 0, losses: 0, otl: 0 };
@@ -156,6 +163,60 @@ class NHLApiService {
     } catch (error) {
       console.error('Error fetching NHL games:', error);
       throw error;
+    }
+  }
+
+  public static async getSeasonStatus(): Promise<SeasonStatus> {
+    try {
+      // First approach: Try to get upcoming games
+      const games = await this.getUpcomingGames();
+      
+      // If we have games in the next week, it's not off-season
+      if (games.length > 0) {
+        return { 
+          isOffSeason: false, 
+          message: "NHL season is currently active."
+        };
+      }
+      
+      // If no games found, check the league info
+      const url = `${NHL_API_BASE}/scoreboard`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`ESPN API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Check if the API explicitly indicates off-season
+      const leagueInfo = data?.leagues?.[0];
+      const seasonType = leagueInfo?.season?.type?.name || '';
+      const seasonState = leagueInfo?.season?.state || '';
+      
+      // Calculate next season info if we're in off-season
+      let nextSeasonInfo = '';
+      if (seasonState === 'off' || games.length === 0) {
+        const currentYear = new Date().getFullYear();
+        const nextSeasonYear = currentYear + (new Date().getMonth() >= 9 ? 0 : 1);
+        const nextSeasonStart = `October ${nextSeasonYear}`;
+        nextSeasonInfo = `The ${nextSeasonYear-1}-${nextSeasonYear} NHL season is expected to begin in ${nextSeasonStart}.`;
+      }
+      
+      return {
+        isOffSeason: seasonState === 'off' || games.length === 0,
+        message: seasonState === 'off' ? 
+          "NHL is currently in the off-season." : 
+          (seasonType ? `NHL is currently in ${seasonType}.` : "No games are currently scheduled."),
+        nextSeasonInfo: nextSeasonInfo || undefined
+      };
+    } catch (error) {
+      console.error('Error checking if NHL is in off-season:', error);
+      // Default to false if there's an error to avoid incorrectly showing off-season message
+      return { 
+        isOffSeason: false, 
+        message: "Unable to determine NHL season status. Assuming season is active." 
+      };
     }
   }
 }
