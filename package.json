@@ -2,14 +2,13 @@
   "name": "nhl-predictor",
   "main": "expo-router/entry",
   "version": "1.0.0",
- "scripts": {
-  "start": "expo start",
-  "android": "expo start --android",
-  "ios": "expo start --ios",
-  "web": "expo start --web",
-  "test": "jest --watchAll",
-  "vercel-build": "expo export && node postbuild.js"
-},
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "jest --watchAll"
+  },
   "jest": {
     "preset": "jest-expo"
   },
@@ -28,7 +27,6 @@
     "expo-status-bar": "~2.0.0",
     "expo-system-ui": "~4.0.6",
     "expo-web-browser": "~14.0.1",
-    "express": "^5.1.0",
     "lucide-react-native": "^0.468.0",
     "nativewind": "^4.1.23",
     "react": "18.3.1",
@@ -39,7 +37,6 @@
     "react-native-screens": "~4.1.0",
     "react-native-web": "~0.19.13",
     "react-redux": "^9.2.0",
-    "serve": "^14.2.4",
     "socket.io-client": "^4.8.1",
     "victory-native": "^41.12.5"
   },
@@ -52,9 +49,6 @@
     "react-test-renderer": "18.3.1",
     "tailwindcss": "^3.3.2",
     "typescript": "~5.3.3"
-  },
-  "resolutions": {
-    "react-devtools-core": "~4.25.0"
   },
   "private": true
 }

@@ -1,6 +1,7 @@
 // hooks/usePrediction.ts
 import { useState, useEffect } from 'react';
 import type { Game } from '@/types/index';
+import config from '@/services/config';
 
 interface PredictionData {
     homeTeamWinProbability: number;
@@ -34,7 +35,7 @@ export function usePrediction(game: Game) {
                 setLoading(true);
                 setError(null);
                 const response = await fetch(
-                    `http://localhost:3000/api/hockey/predict/${game.homeTeam.id}/${game.awayTeam.id}?espnGameId=${game.id}`
+                    `${config.apiUrl}/api/hockey/predict/${game.homeTeam.id}/${game.awayTeam.id}?espnGameId=${game.id}`
                 );
                 
                 if (!response.ok) {

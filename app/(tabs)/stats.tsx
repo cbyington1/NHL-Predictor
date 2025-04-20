@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Platform, Image, ActivityIndicator, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DarkThemeLayout from '@/components/DarkThemeLayout';
+import config from '@/services/config';
 
 interface PredictionResult {
   id: number;
@@ -220,7 +221,7 @@ export default function Stats() {
         setError(null);
         
         // Fetch completed predictions
-        const completedResponse = await fetch('http://localhost:3000/api/predictions/completed');
+        const completedResponse = await fetch(`${config.apiUrl}/api/predictions/completed`);
         if (!completedResponse.ok) {
           throw new Error('Failed to fetch completed prediction results');
         }
@@ -228,7 +229,7 @@ export default function Stats() {
         setCompletedPredictions(completedData);
         
         // Fetch accuracy statistics
-        const accuracyResponse = await fetch('http://localhost:3000/api/predictions/accuracy');
+        const accuracyResponse = await fetch(`${config.apiUrl}/api/predictions/accuracy`);
         if (!accuracyResponse.ok) {
           throw new Error('Failed to fetch accuracy data');
         }
