@@ -12,8 +12,8 @@ export const connectDB = async (): Promise<void> => {
         console.log('PostgreSQL Database connected successfully');
         
         // Optional: Test the connection
-        const tableCount = await prisma.team.count();
-        console.log(`Database contains ${tableCount} teams`);
+        const predictionCount = await prisma.prediction.count();
+        console.log(`Database contains ${predictionCount} predictions`);
         
     } catch (error) {
         console.error('Database connection failed:', error);

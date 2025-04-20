@@ -8,12 +8,8 @@ async function cleanup() {
         console.log('Starting database cleanup...');
 
         // Delete all records from all tables in the correct order
-        await prisma.$transaction([
-            prisma.basicStats.deleteMany({}),
-            prisma.shootingStats.deleteMany({}),
-            prisma.specialStats.deleteMany({}),
-            prisma.team.deleteMany({})
-        ]);
+        await prisma.prediction.deleteMany({});
+        console.log('All predictions have been deleted');
 
         console.log('Cleanup completed successfully!');
     } catch (error) {
