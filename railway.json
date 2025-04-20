@@ -2,10 +2,10 @@
     "$schema": "https://railway.app/railway.schema.json",
     "build": {
       "builder": "NIXPACKS",
-      "buildCommand": "npm install && npx expo export:web"
+      "buildCommand": "npm install && npx expo export"
     },
     "deploy": {
-      "startCommand": "npx serve -s web-build",
+      "startCommand": "npx serve -s dist",
       "healthcheckPath": "/",
       "healthcheckTimeout": 60,
       "restartPolicyType": "ON_FAILURE",
