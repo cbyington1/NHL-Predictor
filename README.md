@@ -59,6 +59,8 @@ Predictions are visualized with intuitive UI elements showing win probability, s
 ## Project Structure
 
 ```
+text-align: left;
+```
 nhl-predictor/
 ├── app/                  # Expo Router app entry
 ├── components/           # Reusable UI components
