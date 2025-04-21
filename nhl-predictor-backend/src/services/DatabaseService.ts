@@ -229,8 +229,106 @@ class DatabaseService {
           console.error('Error fetching completed predictions:', error);
           throw error;
         }
-      }
+    }
     
+    /**
+     * Delete incorrect predictions when accuracy falls below threshold
+     * Deletes oldest incorrect predictions first
+     * @param threshold Minimum accuracy percentage (default 60%)
+     * @returns Object with details about deleted predictions
+     */
+    static async cleanupInaccuratePredictions(threshold: number = 60) {
+        try {
+            console.log(`\n=== Cleaning up inaccurate predictions (threshold: ${threshold}%) ===`);
+            
+            // First, get the current accuracy
+            const accuracyData = await this.getPredictionAccuracy();
+            const currentAccuracy = accuracyData.accuracy;
+            
+            console.log(`Current prediction accuracy: ${currentAccuracy.toFixed(1)}%`);
+            
+            // If accuracy is above the threshold, no need to clean up
+            if (currentAccuracy >= threshold) {
+                console.log(`Accuracy is above threshold (${threshold}%). No cleanup needed.`);
+                return {
+                    accuracyBefore: currentAccuracy,
+                    accuracyAfter: currentAccuracy,
+                    deletedCount: 0,
+                    wasCleanupPerformed: false
+                };
+            }
+            
+            // Get all incorrect predictions, ordered by oldest game date first
+            const incorrectPredictions = await prisma.prediction.findMany({
+                where: {
+                    gameStatus: 'FINAL',
+                    wasCorrect: false
+                },
+                orderBy: {
+                    gameStartTime: 'asc' // Delete oldest predictions first
+                }
+            });
+            
+            console.log(`Found ${incorrectPredictions.length} incorrect predictions`);
+            
+            if (incorrectPredictions.length === 0) {
+                return {
+                    accuracyBefore: currentAccuracy,
+                    accuracyAfter: currentAccuracy,
+                    deletedCount: 0,
+                    wasCleanupPerformed: false
+                };
+            }
+            
+            // Delete incorrect predictions until we reach the threshold or run out of predictions
+            let deletedCount = 0;
+            let newAccuracy = currentAccuracy;
+            let remainingCorrect = accuracyData.correctPredictions;
+            let remainingTotal = accuracyData.totalGames;
+            
+            // Log the first few predictions we'll delete to verify sorting
+            console.log('First few predictions to be deleted (ordered by game date):');
+            incorrectPredictions.slice(0, 3).forEach((pred, i) => {
+                console.log(`${i+1}. ID: ${pred.id}, Game: ${pred.gameId}, Date: ${pred.gameStartTime.toISOString()}`);
+            });
+            
+            for (const prediction of incorrectPredictions) {
+                // Delete prediction
+                await prisma.prediction.delete({
+                    where: { id: prediction.id }
+                });
+                
+                // Update counters
+                deletedCount++;
+                remainingTotal--;
+                
+                // Calculate new accuracy
+                newAccuracy = remainingTotal > 0 ? (remainingCorrect / remainingTotal) * 100 : 100;
+                
+                // Format dates for better logging
+                const gameDate = prediction.gameStartTime.toISOString().split('T')[0];
+                
+                console.log(`Deleted prediction ${prediction.id} from game on ${gameDate}, new accuracy: ${newAccuracy.toFixed(1)}%`);
+                
+                // Check if we've reached the threshold
+                if (newAccuracy >= threshold) {
+                    console.log(`Reached accuracy threshold after deleting ${deletedCount} predictions`);
+                    break;
+                }
+            }
+            
+            return {
+                accuracyBefore: currentAccuracy,
+                accuracyAfter: newAccuracy,
+                deletedCount,
+                wasCleanupPerformed: true
+            };
+            
+        } catch (error) {
+            console.error('Error cleaning up inaccurate predictions:', error);
+            throw error;
+        }
+    }
 }
 
 export default DatabaseService;

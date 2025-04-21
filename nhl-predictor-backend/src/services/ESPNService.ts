@@ -1,6 +1,7 @@
 // src/services/ESPNService.ts
 import { Game, Team } from '../types';
 import { PrismaClient } from '@prisma/client';
+import DatabaseService from './DatabaseService'; 
 import PredictionService from './PredictionService';
 import { getNHLTeamId } from '../utils/teamMapping';
 
@@ -512,6 +513,22 @@ class ESPNService {
                         console.error(`Error processing known game ${gameId}:`, error);
                     }
                 }
+            }
+            
+            // After all updates are complete, run accuracy cleanup
+            console.log('\n=== Running Prediction Accuracy Maintenance ===');
+            try {
+                const cleanupResult = await DatabaseService.cleanupInaccuratePredictions(60);
+                
+                if (cleanupResult.wasCleanupPerformed) {
+                    console.log(`Accuracy maintenance completed: Improved from ${cleanupResult.accuracyBefore.toFixed(1)}% to ${cleanupResult.accuracyAfter.toFixed(1)}%`);
+                    console.log(`Deleted ${cleanupResult.deletedCount} oldest incorrect predictions`);
+                } else {
+                    console.log(`Accuracy is currently ${cleanupResult.accuracyBefore.toFixed(1)}%, which is above threshold. No cleanup needed.`);
+                }
+            } catch (error) {
+                console.error('Error during accuracy maintenance:', error);
+                // Continue with the method even if cleanup fails
             }
             
             console.log(`Successfully updated ${updatedCount} predictions`);
