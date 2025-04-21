@@ -2,16 +2,16 @@
   "name": "nhl-predictor",
   "main": "expo-router/entry",
   "version": "1.0.0",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
-    "build": "expo export:web",
-    "predeploy": "expo export:web",
-    "test": "jest --watchAll"
-  },
+ "scripts": {
+  "start": "node server.js",
+  "dev": "expo start",
+  "android": "expo start --android",
+  "ios": "expo start --ios",
+  "web": "expo start --web",
+  "build": "expo export",
+  "predeploy": "expo export",
+  "test": "jest --watchAll"
+},
   "jest": {
     "preset": "jest-expo"
   },
